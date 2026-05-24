@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Tajawal", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --brand-primary: #0f172a;
+  --brand-primary-rgb: 15, 23, 42;
+  --brand-secondary: #475569;
+  --brand-accent: #0284c7;
+  --bg-surface: #f8fafc;
+  --bg-card: #ffffff;
+  --border-ui: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="royal"] {
+  --brand-primary: #7c2d12;
+  --brand-primary-rgb: 124, 45, 18;
+  --brand-secondary: #9a3412;
+  --brand-accent: #b45309;
+  --bg-surface: #fffbeb;
+  --bg-card: #ffffff;
+  --border-ui: #fde68a;
+  --text-main: #451a03;
+  --text-muted: #b45309;
+}
+
+[data-theme="vibrant"] {
+  --brand-primary: #4f46e5;
+  --brand-primary-rgb: 79, 70, 229;
+  --brand-secondary: #0ea5e9;
+  --brand-accent: #10b981;
+  --bg-surface: #F3F4F6;
+  --bg-card: #ffffff;
+  --border-ui: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="vibrant"] .card-polish {
+  border-radius: 2.25rem;
+  border-width: 1px;
+  border-color: #f1f5f9;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="khareef"] {
+  --brand-primary: #065f46;
+  --brand-primary-rgb: 6, 95, 70;
+  --brand-secondary: #0f7654;
+  --brand-accent: #10b981;
+  --bg-surface: #f0fdf4;
+  --bg-card: #ffffff;
+  --border-ui: #bbf7d0;
+  --text-main: #1f2937;
+  --text-muted: #059669;
+}
+
+.theme-container {
+  background-color: var(--bg-surface);
+  color: var(--text-main);
+  min-height: 100vh;
+}
+
+.card-polish {
+  background-color: var(--bg-card);
+  border-color: var(--border-ui);
+  box-shadow: var(--card-shadow);
+  border-radius: 1rem;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

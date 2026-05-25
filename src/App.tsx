@@ -612,10 +612,10 @@ export default function App() {
           {[
             { id: 'overview', label: 'مؤشرات عامة', icon: <PieChartIcon size={16} /> },
             { id: 'analysis', label: 'المؤشرات الديموغرافية', icon: <TrendingUp size={16} /> },
-            { id: 'wilayats', label: 'كثافة وتوزيع الولايات', icon: <MapPin size={16} /> },
-            { id: 'age', label: 'الهيكل والهرام العمري', icon: <BarChartIcon size={16} /> },
-            { id: 'gender', label: 'إحصاءات النوع', icon: <Users size={16} /> },
-            { id: 'composition', label: 'تركيبة الجنسية', icon: <Globe size={16} /> },
+            { id: 'age', label: 'الهيكل الهرمي', icon: <BarChartIcon size={16} /> },
+            { id: 'wilayats', label: 'التوزيع الجغرافي حسب الولايات', icon: <MapPin size={16} /> },
+            { id: 'gender', label: 'التوزيع الجغرافي حسب النوع', icon: <Users size={16} /> },
+            { id: 'composition', label: 'التوزيع الجغرافي حسب الجنسية', icon: <Globe size={16} /> },
           ].map(tab => (
             <button
               key={tab.id}
@@ -1362,7 +1362,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-[var(--border-ui)] pb-3 gap-3">
                 <div className="flex flex-col gap-0.5">
                   <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>
-                    التوزيع الجغرافي المركب حسب الجنسية (مواطنين عمانيين مقابل مقيمين وافدين)
+                    التوزيع الجغرافي الجنسية (مواطنين عمانيين مقابل مقيمين وافدين)
                   </h3>
                   <p className="text-[10px] text-[var(--text-muted)] font-black">
                      الفحص الحالي للنوع للمخطط: {selectedGenderAge === 'total' ? 'الكل' : selectedGenderAge === 'female' ? 'إناث فقط' : 'ذكور فقط'}
@@ -1416,7 +1416,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-[var(--border-ui)] pb-3 gap-3">
                 <div className="flex flex-col gap-0.5">
                   <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>
-                    التوزيع الجغرافي المركب حسب النوع الاجتماعي (الذكور مقابل الإناث)
+                    التوزيع الجغرافي حسب النوع (الذكور مقابل الإناث)
                   </h3>
                   <p className="text-[10px] text-[var(--text-muted)] font-black">
                      الفحص الحالي للجنسية للمخطط: {selectedNatAge === 'total' ? 'جميع السكان' : selectedNatAge === 'omani' ? 'عمانيون فقط' : 'وافدون فقط'}

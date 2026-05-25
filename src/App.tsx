@@ -545,54 +545,64 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 border-b border-[var(--border-ui)] pb-6 mb-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="font-black text-[var(--brand-primary)] text-sm leading-tight">المديرية العامة للخدمات الصحية</div>
-              <div className="font-bold text-[var(--brand-accent)] text-xs leading-tight">بمحافظة ظفار</div>
-              <div className="text-[10px] text-[var(--text-muted)] font-semibold mt-0.5">دائرة التخطيط والتنظيم الصحي / قسم المعلومات الصحية</div>
-            </div>
+      <header className="relative z-10 border-b border-[var(--border-ui)] pb-6 mb-6">
+        {/* Top Institutional Row: Arabic and English details on the exact same horizontal level */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-dashed border-[var(--border-ui)] pb-5 mb-5">
+          {/* Arabic block (Right side) */}
+          <div className="text-center md:text-right flex-1 select-none">
+            <div className="font-black text-[var(--brand-primary)] text-sm leading-tight">المديرية العامة للخدمات الصحية</div>
+            <div className="font-bold text-[var(--brand-accent)] text-xs leading-tight mt-0.5">بمحافظة ظفار</div>
+            <div className="text-[10px] text-[var(--text-muted)] font-black mt-1">دائرة التخطيط والتنظيم الصحي / قسم المعلومات الصحية</div>
           </div>
-          
-          <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl border border-[var(--border-ui)] max-w-fit shadow-inner">
-            {[
-              { id: 'vibrant', label: 'المظهر النابض ✨' },
-              { id: 'original', label: 'الأساسي' },
-              { id: 'royal', label: 'تراثي ذهبي' },
-              { id: 'khareef', label: 'الخريف' }
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
-                  theme === t.id 
-                    ? 'bg-[var(--brand-primary)] text-white shadow-md' 
-                    : 'text-[var(--text-muted)] hover:bg-slate-200'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+
+          {/* Central Logo Motif */}
+          <div className="flex justify-center items-center scale-110 shrink-0 min-w-[50px] my-2 md:my-0">
+            <LubanTreeIcon />
           </div>
-        </div>
-        
-        <div className="text-center">
-          <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-[900] text-[var(--brand-primary)] tracking-tight leading-tight hover:scale-102 transition-transform duration-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-            التعداد السكاني لمحافظة ظفار 2024-2025
-          </h1>
-          <p className="font-display text-sm md:text-base font-bold text-[var(--brand-accent)] mt-2.5 tracking-wide">
-            المؤشرات الديموغرافية والنوعية
-          </p>
+
+          {/* English block (Left side) */}
+          <div className="text-center md:text-left flex-1 select-none font-sans" dir="ltr">
+            <div className="font-extrabold text-[var(--brand-primary)] text-[13px] leading-tight">Directorate General of Health Services</div>
+            <div className="font-bold text-[var(--brand-accent)] text-[11px] leading-tight mt-0.5">Dhofar Governorate</div>
+            <div className="text-[9px] text-[var(--text-muted)] font-black mt-1">Health Planning & Information Department</div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-left">
-            <div className="font-extrabold text-[var(--brand-primary)] text-xs leading-tight">Directorate General of Health Services</div>
-            <div className="font-bold text-[var(--brand-accent)] text-[11px] leading-tight">Dhofar Governorate</div>
-            <div className="text-[9px] text-[var(--text-muted)] font-semibold">Health Planning & Information Department</div>
+        {/* Lower Section: Centered Title, Subtitle, and Theme Selector beneath them */}
+        <div className="flex flex-col items-center gap-3.5 pt-1 w-full">
+          {/* Main Titles perfectly centered */}
+          <div className="text-center flex flex-col items-center">
+            <h1 className="font-display text-xl md:text-2xl lg:text-3xl font-[900] text-[var(--brand-primary)] tracking-tight leading-tight hover:scale-101 transition-transform duration-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+              التعداد السكاني لمحافظة ظفار 2024-2025
+            </h1>
+            <p className="font-display text-[11px] md:text-xs font-bold text-[var(--brand-accent)] mt-1.5 tracking-wide text-center">
+              المؤشرات الديموغرافية والنوعية
+            </p>
           </div>
-          <LubanTreeIcon />
+
+          {/* Theme selection buttons centered underneath the subtitle */}
+          <div className="flex justify-center w-full">
+            <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl border border-[var(--border-ui)] max-w-fit shadow-inner">
+              {[
+                { id: 'vibrant', label: 'المظهر النابض ✨' },
+                { id: 'original', label: 'الأساسي' },
+                { id: 'royal', label: 'تراثي ذهبي' },
+                { id: 'khareef', label: 'الخريف' }
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                    theme === t.id 
+                      ? 'bg-[var(--brand-primary)] text-white shadow-md' 
+                      : 'text-[var(--text-muted)] hover:bg-slate-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1461,10 +1471,10 @@ export default function App() {
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-[var(--border-ui)] pb-3 gap-3">
                   <div className="flex flex-col gap-0.5">
                     <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>
-                      مخطط الهرم السكاني والفحص الدقيق للفئات العمرية
+                      مخطط الهرم السكاني للفئات العمرية
                     </h3>
                     <p className="text-[10px] text-[var(--text-muted)] font-black">
-                      {selectedWilayatAge === 'all' ? 'بيانات محافظة ظفار العامة' : `بيانات دقيقة مفصلة لولاية: ${selectedWilayatAge}`}
+                      {selectedWilayatAge === 'all' ? '' : `بيانات دقيقة مفصلة لولاية: ${selectedWilayatAge}`}
                       {highlightedAgeGroup && <span className="mr-2 text-[var(--brand-accent)]">| الفئة النشطة للمعاينة: {highlightedAgeGroup}</span>}
                     </p>
                   </div>
@@ -1518,14 +1528,14 @@ export default function App() {
                         <>
                           <Bar 
                             dataKey="male" 
-                            name="ملف الذكور" 
+                            name="الذكور" 
                             stackId="a" 
                             fill="#3b82f6" 
                             fillOpacity={highlightedAgeGroup ? (d => d.range === highlightedAgeGroup ? 1 : 0.3) : 1}
                           />
                           <Bar 
                             dataKey="female" 
-                            name="ملف الإناث" 
+                            name="الإناث" 
                             stackId="a" 
                             fill="#db2777" 
                             fillOpacity={highlightedAgeGroup ? (d => d.range === highlightedAgeGroup ? 1 : 0.3) : 1}

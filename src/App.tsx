@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -259,7 +259,7 @@ const WilayatCard = ({ wilayat, prevTotal, theme }: any) => {
                 <div className="bg-[var(--brand-accent)]/5 p-2.5 rounded-xl border border-[var(--brand-accent)]/10 flex items-center justify-between">
                    <div className="flex items-center gap-1.5">
                       <TrendingUp size={13} className="text-[var(--brand-accent)]" />
-                      <span className="text-[10px] font-black text-[var(--brand-primary)]">الزيادة السنوية المطلقة:</span>
+                      <span className="text-[10px] font-black text-[var(--brand-primary)]">الزيادة السنوية:</span>
                    </div>
                    <span className="text-xs font-black text-[var(--brand-accent)]">
                      {growthValue >= 0 ? '+' : ''}{(wilayat.total - prevTotal).toLocaleString()} نسمة
@@ -369,6 +369,14 @@ export default function App() {
   const [compareWilayat1, setCompareWilayat1] = useState('صلالة');
   const [compareWilayat2, setCompareWilayat2] = useState('طاقة');
   const [compositionView, setCompositionView] = useState<'nationality' | 'gender'>('nationality');
+  const [localCompYear, setLocalCompYear] = useState<'2024' | '2025'>('2025');
+
+  // Sync localCompYear when global selection changes to a specific year
+  useEffect(() => {
+    if (selectedYear === '2024' || selectedYear === '2025') {
+      setLocalCompYear(selectedYear);
+    }
+  }, [selectedYear]);
 
   // Dynamic Census Calculator to ensure mathematically accurate real-time values for ANY selected filters
   const calculateDynamicTotal = useMemo(() => (year: string, wilayatName: string, nationality: string, gender: string) => {
@@ -439,6 +447,38 @@ export default function App() {
     });
   }, [selectedWilayatAge, selectedNatAge, selectedGenderAge, calculateDynamicTotal]);
 
+  const activeCensusData = useMemo(() => {
+    if (selectedWilayatAge === 'all') {
+      return wilayatComparison.reduce((acc, curr) => {
+        acc['2024'] += curr['2024'];
+        acc['2025'] += curr['2025'];
+        acc.omani_2024 += curr.omani_2024;
+        acc.omani_2025 += curr.omani_2025;
+        acc.expat_2024 += curr.expat_2024;
+        acc.expat_2025 += curr.expat_2025;
+        acc.male_2024 += curr.male_2024;
+        acc.male_2025 += curr.male_2025;
+        acc.female_2024 += curr.female_2024;
+        acc.female_2025 += curr.female_2025;
+        return acc;
+      }, {
+        name: 'محافظة ظفار',
+        '2024': 0,
+        '2025': 0,
+        growth: '0.00',
+        omani_2024: 0,
+        omani_2025: 0,
+        expat_2024: 0,
+        expat_2025: 0,
+        male_2024: 0,
+        male_2025: 0,
+        female_2024: 0,
+        female_2025: 0,
+      });
+    }
+    return wilayatComparison[0] || null;
+  }, [selectedWilayatAge, wilayatComparison]);
+
   // Dynamic age group data computed cleanly with reference to filtered inputs
   const ageGroupData = useMemo(() => {
     return AGE_RANGES.map((range, idx) => {
@@ -508,7 +548,6 @@ export default function App() {
       <header className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 border-b border-[var(--border-ui)] pb-6 mb-6">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <NationalEmblemLogo />
             <div className="text-right">
               <div className="font-black text-[var(--brand-primary)] text-sm leading-tight">المديرية العامة للخدمات الصحية</div>
               <div className="font-bold text-[var(--brand-accent)] text-xs leading-tight">بمحافظة ظفار</div>
@@ -562,7 +601,7 @@ export default function App() {
         <nav className="relative z-10 flex flex-nowrap items-center justify-start lg:justify-center overflow-x-auto no-scrollbar mb-8 bg-white p-2 rounded-2xl border border-[var(--border-ui)] gap-1 shadow-sm w-full">
           {[
             { id: 'overview', label: 'مؤشرات عامة', icon: <PieChartIcon size={16} /> },
-            { id: 'analysis', label: 'المقارنة الديموغرافية', icon: <TrendingUp size={16} /> },
+            { id: 'analysis', label: 'المؤشرات الديموغرافية', icon: <TrendingUp size={16} /> },
             { id: 'wilayats', label: 'كثافة وتوزيع الولايات', icon: <MapPin size={16} /> },
             { id: 'age', label: 'الهيكل والهرام العمري', icon: <BarChartIcon size={16} /> },
             { id: 'gender', label: 'إحصاءات النوع', icon: <Users size={16} /> },
@@ -712,7 +751,7 @@ export default function App() {
                     <StatCard 
                       index={3}
                       theme={theme}
-                      title="الزيادة السنوية المطلقة" 
+                      title="الزيادة السنوية" 
                       value={absChange} 
                       subValue="عدد السكان الإضافي في عام" 
                       icon={Activity} 
@@ -728,9 +767,9 @@ export default function App() {
                   <div className="flex flex-col gap-1 mb-5 border-b border-[var(--border-ui)] pb-3">
                     <div className="flex items-center gap-2">
                       <Globe size={18} className="text-[var(--brand-accent)]" />
-                      <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>بنية وتركيب السكان حسب الجنسية</h3>
+                      <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>التوزيع السكاني حسب الجنسية</h3>
                     </div>
-                    <p className="text-[10px] text-[var(--text-muted)] font-black mr-7 leading-none">مقارنة ديموغرافية شاملة بالعدد والنسبة المئوية بين عامي 2024 و 2025</p>
+                    <p className="text-[10px] text-[var(--text-muted)] font-black mr-7 leading-none">مقارنة ديموغرافية بالعدد والنسبة المئوية</p>
                   </div>
                   
                   <div className="space-y-6">
@@ -812,9 +851,9 @@ export default function App() {
                   <div className="flex flex-col gap-1 mb-5 border-b border-[var(--border-ui)] pb-3">
                     <div className="flex items-center gap-2">
                       <Users size={18} className="text-[var(--brand-accent)]" />
-                      <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>التوازن النوعي (2024 / 2025)</h3>
+                      <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>التوزيع السكاني حسب النوع</h3>
                     </div>
-                    <p className="text-[10px] text-[var(--text-muted)] font-black mr-7 leading-none">مقارنة التوازن والنسب الكمية والنوعية للتوزيع السكاني حسب نوع الجنس</p>
+                    <p className="text-[10px] text-[var(--text-muted)] font-black mr-7 leading-none">مقارنة التوزيع السكاني حسب النوع و الجنس</p>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x md:divide-x-reverse divide-[var(--border-ui)] flex-1 mb-6">
@@ -987,7 +1026,7 @@ export default function App() {
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {(() => {
-                  const currentWilayat = wilayatComparison[0];
+                  const currentWilayat = activeCensusData;
                   if (!currentWilayat) return null;
                   
                   const omaniGrowth = currentWilayat.omani_2024 > 0 
@@ -1024,7 +1063,7 @@ export default function App() {
                         theme={theme}
                         title="التغير السكاني الصافي" 
                         value={(currentWilayat['2025'] - currentWilayat['2024'])} 
-                        subValue="الفرق العددي المطلق" 
+                        subValue="الفرق العددي" 
                         icon={Users} 
                         trend={currentWilayat['2025'] - currentWilayat['2024']}
                         color="var(--brand-accent)" 
@@ -1036,7 +1075,7 @@ export default function App() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="card-polish p-5 shadow-sm">
-                  <h3 className={`text-sm font-black text-[var(--brand-primary)] mb-4 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مقارنة التعداد السنوي المفلتر حسب الولايات</h3>
+                  <h3 className={`text-sm font-black text-[var(--brand-primary)] mb-4 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>التعداد السنوي حسب الولايات</h3>
                   <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={wilayatComparison}>
@@ -1055,118 +1094,161 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="card-polish p-5 shadow-sm relative overflow-hidden">
-                  <div className="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-[var(--border-ui)] pb-2.5 gap-3">
-                    <h3 className={`text-sm font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مخطط الهيكل والتركيبة الديموغرافية</h3>
-                    <div className="flex p-0.5 bg-slate-100 rounded-lg">
-                       <button 
-                         onClick={() => setCompositionView('nationality')}
-                         className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${compositionView === 'nationality' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
-                       >
-                         الجنسية
-                       </button>
-                       <button 
-                         onClick={() => setCompositionView('gender')}
-                         className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${compositionView === 'gender' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
-                       >
-                         النوع الاجتماعي
-                       </button>
-                    </div>
-                  </div>
+                {(() => {
+                  const isNationality = compositionView === 'nationality';
+                  const totalComp = isNationality
+                    ? (localCompYear === '2024' ? (activeCensusData?.omani_2024 || 0) + (activeCensusData?.expat_2024 || 0) : (activeCensusData?.omani_2025 || 0) + (activeCensusData?.expat_2025 || 0))
+                    : (localCompYear === '2024' ? (activeCensusData?.male_2024 || 0) + (activeCensusData?.female_2024 || 0) : (activeCensusData?.male_2025 || 0) + (activeCensusData?.female_2025 || 0));
 
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-2">
-                    <div className="w-full md:w-1/2 h-[220px] relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={compositionView === 'nationality' ? [
-                              { name: 'عمانيين', value: wilayatComparison[0]?.omani_2025 || 0, color: '#2563eb' },
-                              { name: 'وافدين', value: wilayatComparison[0]?.expat_2025 || 0, color: '#dc2626' },
-                            ] : [
-                              { name: 'ذكور', value: wilayatComparison[0]?.male_2025 || 0, color: '#4f46e5' },
-                              { name: 'إناث', value: wilayatComparison[0]?.female_2025 || 0, color: '#db2777' },
-                            ]}
-                            innerRadius={65}
-                            outerRadius={85}
-                            paddingAngle={6}
-                            dataKey="value"
-                            nameKey="name"
-                          >
-                            {(compositionView === 'nationality' ? [
-                              { name: 'عمانيين', color: '#2563eb' },
-                              { name: 'وافدين', color: '#dc2626' },
-                            ] : [
-                              { name: 'ذكور', color: '#4f46e5' },
-                              { name: 'إناث', color: '#db2777' },
-                            ]).map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} className="cursor-pointer" />
-                            ))}
-                            <Label 
-                              position="center"
-                              content={(props: any) => {
-                                const total = (compositionView === 'nationality' 
-                                  ? (wilayatComparison[0]?.omani_2025 || 0) + (wilayatComparison[0]?.expat_2025 || 0)
-                                  : (wilayatComparison[0]?.male_2025 || 0) + (wilayatComparison[0]?.female_2025 || 0));
-                                return (
-                                  <text x={props.viewBox.cx} y={props.viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                                    <tspan x={props.viewBox.cx} dy="-0.6em" fontSize="9" fill="var(--text-muted)" fontWeight="bold">إجمالي سكان الفئة</tspan>
-                                    <tspan x={props.viewBox.cx} dy="1.4em" fontSize="16" fill="var(--brand-primary)" fontWeight="900" className="font-mono">{total.toLocaleString()}</tspan>
-                                  </text>
-                                );
-                              }}
-                            />
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
+                  const compData = isNationality ? [
+                    { 
+                      name: 'عمانيين', 
+                      value: localCompYear === '2024' ? (activeCensusData?.omani_2024 || 0) : (activeCensusData?.omani_2025 || 0), 
+                      color: '#3b82f6' 
+                    },
+                    { 
+                      name: 'وافدين', 
+                      value: localCompYear === '2024' ? (activeCensusData?.expat_2024 || 0) : (activeCensusData?.expat_2025 || 0), 
+                      color: '#ef4444' 
+                    },
+                  ] : [
+                    { 
+                      name: 'ذكور', 
+                      value: localCompYear === '2024' ? (activeCensusData?.male_2024 || 0) : (activeCensusData?.male_2025 || 0), 
+                      color: '#4f46e5' 
+                    },
+                    { 
+                      name: 'إناث', 
+                      value: localCompYear === '2024' ? (activeCensusData?.female_2024 || 0) : (activeCensusData?.female_2025 || 0), 
+                      color: '#db2777' 
+                    },
+                  ];
 
-                    <div className="w-full md:w-1/2 space-y-2">
-                       {(compositionView === 'nationality' ? [
-                         { 
-                           label: 'المواطنون العمانيون', 
-                           count: wilayatComparison[0]?.omani_2025 || 0, 
-                           percent: ((wilayatComparison[0]?.omani_2025 || 0) / (wilayatComparison[0]?.['2025'] || 1) * 100).toFixed(1),
-                           color: 'bg-blue-600',
-                         },
-                         { 
-                           label: 'المقيمون الوافدون', 
-                           count: wilayatComparison[0]?.expat_2025 || 0, 
-                           percent: ((wilayatComparison[0]?.expat_2025 || 0) / (wilayatComparison[0]?.['2025'] || 1) * 100).toFixed(1),
-                           color: 'bg-red-600',
-                         }
-                       ] : [
-                         { 
-                           label: 'إحصائيات الذكور', 
-                           count: wilayatComparison[0]?.male_2025 || 0, 
-                           percent: ((wilayatComparison[0]?.male_2025 || 0) / (wilayatComparison[0]?.['2025'] || 1) * 100).toFixed(1),
-                           color: 'bg-indigo-600',
-                         },
-                         { 
-                           label: 'إحصائيات الإناث', 
-                           count: wilayatComparison[0]?.female_2025 || 0, 
-                           percent: ((wilayatComparison[0]?.female_2025 || 0) / (wilayatComparison[0]?.['2025'] || 1) * 100).toFixed(1),
-                           color: 'bg-pink-600',
-                         }
-                       ]).map((item, idx) => (
-                         <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-[var(--border-ui)]">
-                            <div className="flex items-center gap-2 mb-1">
-                               <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
-                               <span className="text-xs font-black text-slate-800">{item.label}</span>
+                  const compList = isNationality ? [
+                    { 
+                      label: 'المواطنون العمانيون', 
+                      count: localCompYear === '2024' ? (activeCensusData?.omani_2024 || 0) : (activeCensusData?.omani_2025 || 0), 
+                      percent: (((localCompYear === '2024' ? (activeCensusData?.omani_2024 || 0) : (activeCensusData?.omani_2025 || 0)) / (activeCensusData?.[localCompYear] || 1)) * 100).toFixed(1),
+                      color: 'bg-blue-600',
+                    },
+                    { 
+                      label: 'المقيمون الوافدون', 
+                      count: localCompYear === '2024' ? (activeCensusData?.expat_2024 || 0) : (activeCensusData?.expat_2025 || 0), 
+                      percent: (((localCompYear === '2024' ? (activeCensusData?.expat_2024 || 0) : (activeCensusData?.expat_2025 || 0)) / (activeCensusData?.[localCompYear] || 1)) * 100).toFixed(1),
+                      color: 'bg-red-600',
+                    }
+                  ] : [
+                    { 
+                      label: 'الذكور', 
+                      count: localCompYear === '2024' ? (activeCensusData?.male_2024 || 0) : (activeCensusData?.male_2025 || 0), 
+                      percent: (((localCompYear === '2024' ? (activeCensusData?.male_2024 || 0) : (activeCensusData?.male_2025 || 0)) / (activeCensusData?.[localCompYear] || 1)) * 100).toFixed(1),
+                      color: 'bg-indigo-600',
+                    },
+                    { 
+                      label: 'الاناث', 
+                      count: localCompYear === '2024' ? (activeCensusData?.female_2024 || 0) : (activeCensusData?.female_2025 || 0), 
+                      percent: (((localCompYear === '2024' ? (activeCensusData?.female_2024 || 0) : (activeCensusData?.female_2025 || 0)) / (activeCensusData?.[localCompYear] || 1)) * 100).toFixed(1),
+                      color: 'bg-pink-600',
+                    }
+                  ];
+
+                  return (
+                    <div className="card-polish p-5 shadow-sm relative overflow-hidden">
+                      <div className="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-[var(--border-ui)] pb-2.5 gap-3">
+                        <div className="flex flex-col gap-0.5">
+                          <h3 className={`text-sm font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مخطط الهيكل والتركيبة الديموغرافية</h3>
+                          <p className="text-[9px] text-[var(--text-muted)] font-black">
+                             البيانات المعروضة لعام {localCompYear} {selectedYear === 'compare' && " (مقارنة الأعوام نشط)"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {selectedYear === 'compare' && (
+                            <div className="flex p-0.5 bg-slate-100 rounded-lg">
+                               <button 
+                                 onClick={() => setLocalCompYear('2024')}
+                                 className={`px-2.5 py-1 rounded-md text-[10px] font-black transition-all ${localCompYear === '2024' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
+                               >
+                                 2024
+                               </button>
+                               <button 
+                                 onClick={() => setLocalCompYear('2025')}
+                                 className={`px-2.5 py-1 rounded-md text-[10px] font-black transition-all ${localCompYear === '2025' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
+                               >
+                                 2025
+                               </button>
                             </div>
-                            <div className="flex justify-between text-xs font-mono font-black text-slate-600">
-                              <span>{item.count.toLocaleString()} نسمة</span>
-                              <span className="text-[var(--brand-accent)]">{item.percent}%</span>
-                            </div>
-                         </div>
-                       ))}
+                          )}
+                          <div className="flex p-0.5 bg-slate-100 rounded-lg">
+                             <button 
+                               onClick={() => setCompositionView('nationality')}
+                               className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${compositionView === 'nationality' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
+                             >
+                               الجنسية
+                             </button>
+                             <button 
+                               onClick={() => setCompositionView('gender')}
+                               className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${compositionView === 'gender' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-slate-400'}`}
+                             >
+                               النوع الاجتماعي
+                             </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-2">
+                        <div className="w-full md:w-1/2 h-[220px] relative">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={compData}
+                                innerRadius={65}
+                                outerRadius={85}
+                                paddingAngle={6}
+                                dataKey="value"
+                                nameKey="name"
+                              >
+                                {compData.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} className="cursor-pointer" />
+                                ))}
+                                <Label 
+                                  position="center"
+                                  content={(props: any) => {
+                                    return (
+                                      <text x={props.viewBox.cx} y={props.viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                        <tspan x={props.viewBox.cx} dy="-0.6em" fontSize="9" fill="var(--text-muted)" fontWeight="bold">إجمالي سكان الفئة</tspan>
+                                        <tspan x={props.viewBox.cx} dy="1.4em" fontSize="16" fill="var(--brand-primary)" fontWeight="900" className="font-mono">{totalComp.toLocaleString()}</tspan>
+                                      </text>
+                                    );
+                                  }}
+                                />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        <div className="w-full md:w-1/2 space-y-2">
+                           {compList.map((item, idx) => (
+                             <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-[var(--border-ui)]">
+                                <div className="flex items-center gap-2 mb-1">
+                                   <div className={`w-2.5 h-2.5 rounded-full ${item.color}`}></div>
+                                   <span className="text-xs font-black text-slate-800">{item.label}</span>
+                                </div>
+                                <div className="flex justify-between text-xs font-mono font-black text-slate-600">
+                                  <span>{item.count.toLocaleString()} نسمة</span>
+                                  <span className="text-[var(--brand-accent)]">{item.percent}%</span>
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="w-full">
                 <div className="card-polish p-5 shadow-sm">
-                  <h3 className={`text-sm font-black text-[var(--brand-primary)] mb-3 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مقارنة التوزيع الديموغرافي التفاعلي بين ولايات ظفار</h3>
+                  <h3 className={`text-sm font-black text-[var(--brand-primary)] mb-3 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مقارنة التوزيع الديموغرافي في الولايات</h3>
                   <div className="flex gap-2 mb-4 justify-end">
                      <select 
                        value={compareWilayat1}
@@ -1184,33 +1266,6 @@ export default function App() {
                      </select>
                   </div>
                   <DemographicComparison wilayat1={compareWilayat1} wilayat2={compareWilayat2} data={DATA_2025} />
-                </div>
-
-                <div className="card-polish p-5 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <h3 className={`text-sm font-black text-[var(--brand-primary)] mb-3 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>مؤشرات ديموغرافية هامة للاستهداف الصحي</h3>
-                    <p className="text-[11px] text-[var(--text-muted)] mb-4">
-                      تلعب البيانات الديموغرافية الموزعة حسب الفئة العمرية والجنسية دوراً حاسماً في التخطيط للمستشفيات، المراكز الصحية الأولية والتوزيع الأمثل للكوادر والميزانيات التخطيطية بمحافظة ظفار.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-                      <div className="text-blue-700 font-black text-[10px] mb-1">النسبة الوطنية العامة للتوطين بالمحافظة</div>
-                      <div className="text-xl font-black text-blue-900 font-mono">
-                        {((DATA_2025.omani / DATA_2025.total) * 100).toFixed(2)}%
-                      </div>
-                      <span className="text-[9px] text-blue-600 block mt-1">حصة المواطنين العمانيين من مجموع سكان ظفار.</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
-                      <div className="text-emerald-700 font-black text-[10px] mb-1">كثافة النمو المطلق بمحافظة ظفار</div>
-                      <div className="text-xl font-black text-emerald-900 font-mono">
-                        +{(DATA_2025.total - DATA_2024.total).toLocaleString()}
-                      </div>
-                      <span className="text-[9px] text-emerald-600 block mt-1">فارق العائد السنوي للتعداد الكلي.</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </motion.div>

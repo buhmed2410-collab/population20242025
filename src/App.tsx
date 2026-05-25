@@ -370,6 +370,11 @@ export default function App() {
   const [compareWilayat2, setCompareWilayat2] = useState('طاقة');
   const [compositionView, setCompositionView] = useState<'nationality' | 'gender'>('nationality');
   const [localCompYear, setLocalCompYear] = useState<'2024' | '2025'>('2025');
+  const [heatmapMetric, setHeatmapMetric] = useState<'population' | 'growth'>('population');
+
+  // Demographic simulation states (2030 projections)
+  const [simulationWilayat, setSimulationWilayat] = useState<string>('صلالة');
+  const [simulatedGrowthRate, setSimulatedGrowthRate] = useState<number>(2.5);
 
   // Sync localCompYear when global selection changes to a specific year
   useEffect(() => {
@@ -409,6 +414,16 @@ export default function App() {
     return sum;
   }, []);
 
+  // Sync population simulation rate to the actual growth rate of the chosen simulationWilayat
+  useEffect(() => {
+    const tot2024 = calculateDynamicTotal('2024', simulationWilayat, 'total', 'total');
+    const tot2025 = calculateDynamicTotal('2025', simulationWilayat, 'total', 'total');
+    if (tot2024 > 0) {
+      const actualRate = parseFloat((((tot2025 - tot2024) / tot2024) * 100).toFixed(2));
+      setSimulatedGrowthRate(actualRate);
+    }
+  }, [simulationWilayat, calculateDynamicTotal]);
+
   // Compute the current dynamic comparison of Omani, Expat, Male, Female totals across chosen filters
   const wilayatComparison = useMemo(() => {
     const listToProcess = selectedWilayatAge === 'all' ? WILAYAT_NAMES : [selectedWilayatAge];
@@ -446,6 +461,45 @@ export default function App() {
       };
     });
   }, [selectedWilayatAge, selectedNatAge, selectedGenderAge, calculateDynamicTotal]);
+
+  // Compute the metrics for ALL wilayats to power the Heatmap and other governorate-wide visualizations
+  const allWilayatsStats = useMemo(() => {
+    return WILAYAT_NAMES.map(name => {
+      const tot2024 = calculateDynamicTotal('2024', name, selectedNatAge, selectedGenderAge);
+      const tot2025 = calculateDynamicTotal('2025', name, selectedNatAge, selectedGenderAge);
+      
+      const diff = tot2025 - tot2024;
+      const growth = tot2024 > 0 ? ((diff / tot2024) * 100) : 0;
+      
+      // Approximate area of each wilayat in sq km
+      const areas: Record<string, number> = {
+        'صلالة': 1500,
+        'طاقة': 1000,
+        'مرباط': 1500,
+        'رخيوت': 1200,
+        'ثمريت': 20000,
+        'ضلكوت': 800,
+        'المزيونة': 15000,
+        'مقشن': 25000,
+        'شليم وجزر الحلانيات': 28000,
+        'سدح': 1800,
+      };
+      
+      const area = areas[name] || 1000;
+      const density2024 = tot2024 / area;
+      const density2025 = tot2025 / area;
+      
+      return {
+        name,
+        '2024': tot2024,
+        '2025': tot2025,
+        growth: parseFloat(growth.toFixed(2)),
+        area,
+        density2024,
+        density2025,
+      };
+    });
+  }, [selectedNatAge, selectedGenderAge, calculateDynamicTotal]);
 
   const activeCensusData = useMemo(() => {
     if (selectedWilayatAge === 'all') {
@@ -536,6 +590,61 @@ export default function App() {
       };
     });
   }, [selectedYear, selectedWilayatAge, selectedNatAge, selectedGenderAge]);
+
+  // Compute cumulative age group data for 2024 vs 2025
+  const cumulativeAgeData = useMemo(() => {
+    let cumulative2024 = 0;
+    let cumulative2025 = 0;
+
+    return AGE_RANGES.map((range, idx) => {
+      const getSumForYear = (year: string) => {
+        const oDist = AGE_DISTRIBUTION_OMANI[year] || {};
+        const eDist = AGE_DISTRIBUTION_EXPAT[year] || {};
+        
+        let maleSum = 0;
+        let femaleSum = 0;
+        
+        const targetWilayats = selectedWilayatAge === 'all' ? WILAYAT_NAMES : [selectedWilayatAge];
+        
+        targetWilayats.forEach(w => {
+          const o = oDist[w]?.[idx] || [0, 0];
+          const e = eDist[w]?.[idx] || [0, 0];
+          
+          if (selectedNatAge === 'total' || selectedNatAge === 'omani') {
+            maleSum += o[0];
+            femaleSum += o[1];
+          }
+          if (selectedNatAge === 'total' || selectedNatAge === 'expat') {
+            maleSum += e[0];
+            femaleSum += e[1];
+          }
+        });
+        
+        // Apply Gender Filter
+        if (selectedGenderAge === 'male') {
+          return maleSum;
+        } else if (selectedGenderAge === 'female') {
+          return femaleSum;
+        } else {
+          return maleSum + femaleSum;
+        }
+      };
+
+      const total2024 = getSumForYear('2024');
+      const total2025 = getSumForYear('2025');
+
+      cumulative2024 += total2024;
+      cumulative2025 += total2025;
+
+      return {
+        range,
+        total2024,
+        total2025,
+        cumulative2024,
+        cumulative2025,
+      };
+    });
+  }, [selectedWilayatAge, selectedNatAge, selectedGenderAge]);
 
   // Compute Health Planning specific indicators
   const healthPlanningData = useMemo(() => {
@@ -1454,6 +1563,221 @@ export default function App() {
                   <DemographicComparison wilayat1={compareWilayat1} wilayat2={compareWilayat2} data={DATA_2025} />
                 </div>
               </div>
+
+              {/* INTERACTIVE POPULATION PROJECTION SIMULATOR (Y2030) */}
+              <div className="w-full animate-fade-in">
+                <div className="card-polish p-6 shadow-sm overflow-hidden relative border border-[var(--border-ui)]/70">
+                  <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-[var(--brand-accent)] to-[var(--brand-primary)]"></div>
+                  
+                  {/* Title & Header */}
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-[var(--border-ui)]/60 gap-4">
+                    <div className="space-y-0.5">
+                      <h3 className={`text-base font-black text-[var(--brand-primary)] flex items-center gap-2 ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>
+                        <TrendingUp size={18} className="text-[var(--brand-accent)] animate-pulse" />
+                        محاكي تقدير النمو السكاني التفاعلي لعام 2030 (Slider)
+                      </h3>
+                      <p className="text-[11px] text-[var(--text-muted)] font-black">
+                        اختر ولاية معينة وحدد معدل النمو السنوي لتقدير حجم السكان الإجمالي لعام 2030 بناءً على تعداد 2025 الحالي.
+                      </p>
+                    </div>
+
+                    {/* Reset Button */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSimulationWilayat('صلالة');
+                        }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black border border-[var(--border-ui)] transition-colors"
+                      >
+                        إعادة تعيين ↺
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans">
+                    {/* Controls & Metrics inside Left Column */}
+                    <div className="lg:col-span-5 space-y-5">
+                      
+                      {/* Control Form */}
+                      <div className="p-4 bg-slate-50 border border-[var(--border-ui)]/60 rounded-xl space-y-4">
+                        
+                        {/* Wilayat Selection */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-black text-slate-700 block">الولاية المستهدفة للمحاكاة:</label>
+                          <select 
+                            value={simulationWilayat}
+                            onChange={(e) => setSimulationWilayat(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-[var(--border-ui)] rounded-lg text-xs font-black text-[var(--brand-primary)] outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20"
+                          >
+                            <option value="all">جميع ولايات المحافظة (إجمالي)</option>
+                            {WILAYAT_NAMES.map(w => (
+                              <option key={w} value={w}>{w}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Interactive Growth Rate Slider */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="font-black text-slate-700">معدل النمو السنوي المفترض (%):</span>
+                            <span className="font-extrabold text-[var(--brand-accent)] bg-[var(--brand-accent)]/10 px-2 py-0.5 rounded-full font-mono text-xs">
+                              {simulatedGrowthRate > 0 ? `+${simulatedGrowthRate.toFixed(2)}` : simulatedGrowthRate.toFixed(2)}%
+                            </span>
+                          </div>
+
+                          <input 
+                            type="range"
+                            min="-5"
+                            max="10"
+                            step="0.05"
+                            value={simulatedGrowthRate}
+                            onChange={(e) => setSimulatedGrowthRate(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-[var(--brand-primary)]"
+                          />
+
+                          <div className="flex justify-between items-center text-[9px] text-[var(--text-muted)] font-black">
+                            <span>-5% (انكماش سريع)</span>
+                            <span>0% (ثابت)</span>
+                            <span>+10% (نمو متسارع)</span>
+                          </div>
+                        </div>
+
+                        {/* Informative Text */}
+                        <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-[9px] text-blue-800 font-extrabold flex gap-1.5 items-start">
+                          <Info size={11} className="mt-0.5 shrink-0 animate-bounce" />
+                          <span>
+                            تم ضبط المؤشر تلقائياً ليعكس معدل النمو الملاحظ حالياً بين عامي 2024 و 2025. يمكنك سحب المؤشر لتجربة سيناريوهات بديلة للتخطيط والتنمية الحضرية.
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Display Outputs (2025 vs 2030 Projections) */}
+                      {(() => {
+                        const pop2025 = calculateDynamicTotal('2025', simulationWilayat, 'total', 'total');
+                        const rate = simulatedGrowthRate / 100;
+                        const projected2030 = Math.round(pop2025 * Math.pow(1 + rate, 5));
+                        const netDiff = projected2030 - pop2025;
+                        const totalPercentGrowth = pop2025 > 0 ? ((netDiff / pop2025) * 100).toFixed(1) : '0';
+
+                        return (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-white border border-[var(--border-ui)] rounded-xl shadow-sm text-right flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-[var(--text-muted)]">تعداد 2025 (الحالي)</span>
+                              <div className="mt-1.5">
+                                <span className="text-xl font-sans font-black text-slate-800 tracking-tight block">
+                                  {pop2025.toLocaleString()}
+                                </span>
+                                <span className="text-[9px] font-black text-slate-400 block mt-0.5">نسمة</span>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-gradient-to-br from-[var(--brand-primary)] to-[var(--brand-primary)]/90 border border-transparent rounded-xl shadow-md text-right text-white flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-white/80">تقدير 2030 (المستقبلي)</span>
+                              <div className="mt-1.5">
+                                <span className="text-xl font-sans font-black text-white tracking-tight block">
+                                  {projected2030.toLocaleString()}
+                                </span>
+                                <span className="text-[9px] font-black text-white/85 flex items-center justify-between gap-1 mt-0.5">
+                                  <span>نسمة</span>
+                                  <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-mono leading-none ${netDiff >= 0 ? 'bg-emerald-500/30 text-emerald-300' : 'bg-rose-500/30 text-rose-300'}`}>
+                                    {netDiff >= 0 ? `+${parseFloat(totalPercentGrowth)}%` : `${parseFloat(totalPercentGrowth)}%`}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="col-span-2 p-3 bg-slate-50 border border-[var(--border-ui)] rounded-xl flex justify-between items-center">
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] font-black text-[var(--text-muted)] block">الزيادة السكانية المتوقعة بحلول 2030</span>
+                                <span className="text-xs font-black text-slate-700 font-sans block">
+                                  {netDiff > 0 ? `+${netDiff.toLocaleString()}` : netDiff.toLocaleString()} نسمة
+                                </span>
+                              </div>
+                              <div className={`p-2 rounded-lg ${netDiff >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                {netDiff >= 0 ? (
+                                  <ArrowUpRight size={16} className="animate-bounce" />
+                                ) : (
+                                  <ArrowDownRight size={16} className="animate-bounce" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    </div>
+
+                    {/* Chart display inside Right Column */}
+                    {(() => {
+                      const pop2024 = calculateDynamicTotal('2024', simulationWilayat, 'total', 'total');
+                      const pop2025 = calculateDynamicTotal('2025', simulationWilayat, 'total', 'total');
+                      const rate = simulatedGrowthRate / 100;
+
+                      const data = [
+                        { name: '2024', population: pop2024, type: 'فعلي' },
+                        { name: '2025', population: pop2025, type: 'فعلي' },
+                        { name: '2026', population: Math.round(pop2025 * Math.pow(1 + rate, 1)), type: 'تقديري' },
+                        { name: '2027', population: Math.round(pop2025 * Math.pow(1 + rate, 2)), type: 'تقديري' },
+                        { name: '2028', population: Math.round(pop2025 * Math.pow(1 + rate, 3)), type: 'تقديري' },
+                        { name: '2029', population: Math.round(pop2025 * Math.pow(1 + rate, 4)), type: 'تقديري' },
+                        { name: '2030', population: Math.round(pop2025 * Math.pow(1 + rate, 5)), type: 'تقديري' },
+                      ];
+
+                      return (
+                        <div className="lg:col-span-7 flex flex-col justify-between border border-[var(--border-ui)]/70 rounded-2xl p-4 bg-white shadow-inner min-h-[340px]">
+                          <div>
+                            <span className="font-extrabold text-xs text-[var(--brand-primary)] block">مسار النمو والتقدير السكاني المتسلسل (2024 - 2030)</span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-black block">يوضح الخط المتقطع تقديرات النمو المستقبلي من عام 2026</span>
+                          </div>
+
+                          <div className="h-[250px] mt-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={data} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
+                                <defs>
+                                  <linearGradient id="colorSimulationGlobal" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--brand-accent)" stopOpacity={0.4}/>
+                                    <stop offset="95%" stopColor="var(--brand-accent)" stopOpacity={0.0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-ui)" />
+                                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 10, fontWeight: 'bold' }} stroke="var(--border-ui)" />
+                                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} stroke="var(--border-ui)" />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-ui)', borderRadius: '12px', textAlign: 'right' }}
+                                  formatter={(value, name, props) => {
+                                    return [
+                                      `${Number(value).toLocaleString()} نسمة`, 
+                                      `تعداد ${props.payload.type}`
+                                    ];
+                                  }}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="population" 
+                                  stroke="var(--brand-accent)" 
+                                  strokeWidth={2.5}
+                                  fillOpacity={1} 
+                                  fill="url(#colorSimulationGlobal)" 
+                                  dot={{ r: 4, strokeWidth: 1.5, fill: 'white' }}
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          <div className="flex justify-between items-center text-[9px] text-[var(--text-muted)] font-bold bg-slate-100 p-2 rounded-lg">
+                            <span className="flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[var(--brand-accent)] inline-block"></span>
+                              التقدير لعام 2030: {data[6].population.toLocaleString()} نسمة
+                            </span>
+                            <span>الولاية: {simulationWilayat === 'all' ? 'جميع ولايات ظفار' : simulationWilayat}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -1467,61 +1791,228 @@ export default function App() {
               className="space-y-6"
             >
               <div className="card-polish p-6 shadow-sm">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-[var(--border-ui)] pb-3 gap-3">
+                {/* Header with Heatmap Selection controls */}
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-[var(--border-ui)] pb-4 gap-4">
                   <div className="flex flex-col gap-0.5">
                     <h3 className={`text-base font-black text-[var(--brand-primary)] ${theme === 'royal' ? 'font-serif' : 'font-sans'}`}>
-                      الكثافة والمؤشرات السكنية الموزعة حسب الولايات ({selectedYear === 'compare' ? 'مقارنة' : selectedYear})
+                      الكثافة والمؤشرات السكنية حسب الولايات ({selectedYear === 'compare' ? 'مقارنة' : selectedYear})
                     </h3>
                     <p className="text-[10px] text-[var(--text-muted)] font-black">
                        يعرض التعداد السكاني الدقيق المفلتر حسب: {selectedNatAge === 'total' ? 'جميع الجنسيات' : selectedNatAge === 'omani' ? 'مواطنين' : 'وافدين'} | {selectedGenderAge === 'total' ? 'جميع النوع الاجتماعي' : selectedGenderAge === 'female' ? 'إناث فقط' : 'ذكور فقط'}
                     </p>
                   </div>
+
+                  {/* Heatmap interactive toggle buttons */}
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-[var(--border-ui)] shadow-inner">
+                    <span className="text-[10px] font-black text-[var(--text-muted)] px-2">مقياس الخريطة الحرارية:</span>
+                    {[
+                      { id: 'population', label: 'التعداد السكاني الكلي' },
+                      { id: 'growth', label: 'معدل النمو السنوي (%)' }
+                    ].map((btn) => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setHeatmapMetric(btn.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                          heatmapMetric === btn.id 
+                            ? 'bg-[var(--brand-primary)] text-white shadow-sm' 
+                            : 'text-[var(--text-muted)] hover:text-slate-800 hover:bg-slate-200'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="h-[480px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={wilayatComparison}
-                      margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--border-ui)" />
-                      <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 10, fontStyle: 'normal' }} stroke="var(--border-ui)" />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        orientation="right" 
-                        tick={{ fill: 'var(--text-main)', fontSize: 11, fontWeight: 'black' }} 
-                        stroke="var(--border-ui)"
-                        width={80}
-                      />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-ui)', borderRadius: '12px' }}
-                        formatter={(value) => [value?.toLocaleString() ?? 0, 'نسمة']}
-                      />
-                      
-                      {selectedYear === 'compare' ? (
-                        <>
-                          <Legend wrapperStyle={{ fontSize: 10 }} />
-                          <Bar dataKey="2024" name="تعداد سنة 2024" fill="#94a3b8" radius={[0, 4, 4, 0]} maxBarSize={15} />
-                          <Bar dataKey="2025" name="تعداد سنة 2025" fill="var(--brand-accent)" radius={[0, 4, 4, 0]} maxBarSize={15} />
-                        </>
-                      ) : (
-                        <Bar 
-                          dataKey={selectedYear} 
-                          name="تعداد الكثافة السكنية الكلية" 
-                          fill="var(--brand-primary)" 
-                          radius={[0, 4, 4, 0]} 
-                          maxBarSize={25}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  
+                  {/* Left Column: Traditional Recharts BarChart (Perfect for direct visual data analysis) */}
+                  <div className="lg:col-span-5 border border-[var(--border-ui)]/60 rounded-2xl p-4 bg-white shadow-inner flex flex-col justify-between">
+                    <div className="mb-2">
+                      <h4 className="font-extrabold text-xs text-[var(--brand-primary)]">التسلسل السكاني الكلي للولايات</h4>
+                      <p className="text-[9px] text-[var(--text-muted)] font-bold">يقارن التغيرات السكنية بشكل عمودي لسهولة التحليل</p>
+                    </div>
+                    
+                    <div className="h-[400px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          layout="vertical"
+                          data={allWilayatsStats}
+                          margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
                         >
-                          {wilayatComparison.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--brand-primary)' : 'var(--brand-accent)'} />
-                          ))}
-                        </Bar>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--border-ui)" />
+                          <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} stroke="var(--border-ui)" />
+                          <YAxis 
+                            dataKey="name" 
+                            type="category" 
+                            orientation="right" 
+                            tick={{ fill: 'var(--text-main)', fontSize: 10, fontWeight: 'black' }} 
+                            stroke="var(--border-ui)"
+                            width={75}
+                          />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-ui)', borderRadius: '12px' }}
+                            formatter={(value) => [value?.toLocaleString() ?? 0, 'نسمة']}
+                          />
+                          
+                          {selectedYear === 'compare' ? (
+                            <>
+                              <Legend wrapperStyle={{ fontSize: 9, fontWeight: 'bold' }} />
+                              <Bar dataKey="2024" name="تعداد 2024" fill="#94a3b8" radius={[0, 4, 4, 0]} maxBarSize={12} />
+                              <Bar dataKey="2025" name="تعداد 2025" fill="var(--brand-accent)" radius={[0, 4, 4, 0]} maxBarSize={12} />
+                            </>
+                          ) : (
+                            <Bar 
+                              dataKey={selectedYear} 
+                              name="التعداد الفصلي والسكاني" 
+                              fill="var(--brand-primary)" 
+                              radius={[0, 4, 4, 0]} 
+                              maxBarSize={20}
+                            >
+                              {allWilayatsStats.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--brand-primary)' : 'var(--brand-accent)'} />
+                              ))}
+                            </Bar>
+                          )}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Right Column: High-Fidelity Demographic Density Heatmap Matrix */}
+                  <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
+                    <div className="flex justify-between items-center bg-slate-50 border border-[var(--border-ui)] rounded-xl p-3">
+                      <div className="space-y-0.5">
+                        <h4 className="font-extrabold text-xs text-[var(--brand-primary)] flex items-center gap-1.5">
+                          <Activity size={12} className="text-[var(--brand-accent)] animate-pulse" />
+                          مصفوفة التوزيع والكثافة الجغرافية السكانية للولايات
+                        </h4>
+                        <p className="text-[9px] text-[var(--text-muted)] font-black">
+                          انقر على ولاية لتحديدها وتصفية لوحة البيانات والمؤشرات الطبية التابعة لها.
+                        </p>
+                      </div>
+                      
+                      {selectedWilayatAge !== 'all' && (
+                        <button 
+                          onClick={() => setSelectedWilayatAge('all')}
+                          className="px-2 py-0.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-md font-black text-[9px] transition-colors"
+                        >
+                          إلغاء التصفية الجغرافية ✕
+                        </button>
                       )}
-                    </BarChart>
-                  </ResponsiveContainer>
+                    </div>
+
+                    {/* Heatmap Cell Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-5 gap-3">
+                      {(() => {
+                        const getMetricValue = (entry: typeof allWilayatsStats[0], metric: 'population' | 'growth') => {
+                          const year = selectedYear === 'compare' ? '2025' : selectedYear;
+                          if (metric === 'population') {
+                            return year === '2024' ? entry['2024'] : entry['2025'];
+                          } else {
+                            return entry.growth;
+                          }
+                        };
+
+                        const values = allWilayatsStats.map(e => getMetricValue(e, heatmapMetric));
+                        const maxVal = Math.max(...values, 1);
+                        const minVal = Math.min(...values, 0);
+
+                        return allWilayatsStats.map((entry) => {
+                          const val = getMetricValue(entry, heatmapMetric);
+                          
+                          // Percentage/Intensity
+                          const intensity = maxVal > minVal ? (val - minVal) / (maxVal - minVal) : 0.5;
+
+                          // Color schemes and adaptations
+                          let bgStyle = {};
+                          const textColorClass = intensity > 0.45 ? 'text-white' : 'text-slate-900';
+                          const textMutedClass = intensity > 0.45 ? 'text-white/85' : 'text-slate-500';
+                          const badgeBgClass = intensity > 0.45 ? 'bg-white/20 text-white' : 'bg-slate-200/70 text-slate-700';
+
+                          if (heatmapMetric === 'population') {
+                            bgStyle = { backgroundColor: `rgba(55, 48, 163, ${0.08 + intensity * 0.92})` };
+                          } else {
+                            bgStyle = { backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.92})` };
+                          }
+
+                          const isSelected = selectedWilayatAge === entry.name;
+
+                          return (
+                            <motion.button
+                              key={entry.name}
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                if (selectedWilayatAge === entry.name) {
+                                  setSelectedWilayatAge('all');
+                                } else {
+                                  setSelectedWilayatAge(entry.name);
+                                }
+                              }}
+                              style={bgStyle}
+                              className={`p-3 rounded-xl border flex flex-col justify-between items-start text-right min-h-[110px] duration-150 relative cursor-pointer group ${
+                                isSelected 
+                                  ? 'border-[var(--brand-primary)] ring-4 ring-[var(--brand-primary)]/20 shadow-md scale-[1.02] z-10' 
+                                  : 'border-[var(--border-ui)] hover:shadow-sm'
+                              }`}
+                            >
+                              <div className="w-full flex justify-between items-start">
+                                <span className={`font-black text-xs block group-hover:underline ${textColorClass}`}>
+                                  {entry.name}
+                                </span>
+                                {isSelected && (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 block animate-pulse"></span>
+                                )}
+                              </div>
+
+                              <div className="space-y-0.5 mt-2">
+                                <span className={`text-[12px] font-[900] block tracking-tight font-mono ${textColorClass}`}>
+                                  {heatmapMetric === 'population' ? (
+                                    <>
+                                      {val.toLocaleString()} <span className="text-[8px] font-sans font-extrabold">نسمة</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {val > 0 ? `+${val.toFixed(2)}` : val.toFixed(2)}%
+                                    </>
+                                  )}
+                                </span>
+
+                                <span className={`text-[8px] font-bold block ${textMutedClass}`}>
+                                  {entry.area.toLocaleString()} كم²
+                                </span>
+                              </div>
+
+                              <div className="w-full flex justify-end mt-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider ${badgeBgClass}`}>
+                                  {entry.name === 'صلالة' ? 'تجمع رئيسي' : entry.area > 10000 ? 'شاسعة' : 'حضرية'}
+                                </span>
+                              </div>
+                            </motion.button>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    {/* Arabic RTL aligned Heatmap Legend */}
+                    <div className="flex flex-col space-y-2 pt-3 border-t border-[var(--border-ui)]">
+                      <div className="flex justify-between items-center text-[10px] font-black text-[var(--text-muted)]">
+                        <span>مستوى منخفض (كثافة خفيفة)</span>
+                        <span>مستوى متوازن</span>
+                        <span>مستوى مرتفع جداً (تجمع مركزي)</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full opacity-90 shadow-inner" style={{
+                        background: heatmapMetric === 'population'
+                          ? 'linear-gradient(to left, rgba(55, 48, 163, 0.05), rgba(55, 48, 163, 1))'
+                          : 'linear-gradient(to left, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 1))'
+                      }}></div>
+                    </div>
+
+                  </div>
+
                 </div>
+
               </div>
             </motion.div>
           )}
@@ -1901,6 +2392,211 @@ export default function App() {
                   })()}
                 </div>
               </div>
+
+              {/* SECTION 2: Demographic Sustainability Index */}
+              {(() => {
+                const yearToUse = selectedYear === 'compare' ? '2025' : selectedYear;
+                const stats = healthPlanningData[yearToUse] || { 
+                  total: 1, 
+                  infants: 0, 
+                  schoolAge: 0, 
+                  maternalFemales: 0, 
+                  elderly: 0, 
+                  childrenTotal: 0, 
+                  workingAge: 0, 
+                  dependencyRatio: 0 
+                };
+
+                const childrenVal = stats.childrenTotal;
+                const elderlyVal = stats.elderly;
+                const dependentsTotal = childrenVal + elderlyVal;
+                const workingAgeVal = stats.workingAge;
+                
+                // Demographic Sustainability Index = Working Age / Dependents
+                const dsi = dependentsTotal > 0 ? (workingAgeVal / dependentsTotal) : 0;
+                
+                // Percentages
+                const totalVal = stats.total || 1;
+                const workingAgePercent = ((workingAgeVal / totalVal) * 100).toFixed(1);
+                const childrenPercent = ((childrenVal / totalVal) * 100).toFixed(1);
+                const elderlyPercent = ((elderlyVal / totalVal) * 100).toFixed(1);
+
+                // Classification and Recommendations
+                let statusLabel = "";
+                let statusColorClass = "";
+                let statusBgClass = "";
+                let statusBorderClass = "";
+                let recommendations: string[] = [];
+
+                if (dsi >= 2.0) {
+                  statusLabel = "استدامة ديموغرافية قوية وممتازة";
+                  statusColorClass = "text-emerald-700";
+                  statusBgClass = "bg-emerald-50/70";
+                  statusBorderClass = "border-emerald-200";
+                  recommendations = [
+                    "توجيه الاستثمارات الصحية نحو تطوير الخدمات التخصصية المتقدمة وجراحات اليوم الواحد نظراً لوفرة الطاقة الإنتاجية السكانية.",
+                    "التركيز على تعزيز الخدمات الوقائية والصحة المهنية لضمان استدامة لياقة القوة العاملة وتقليل الإجازات المرضية الطويلة.",
+                    "استغلال النافذة الديموغرافية الإيجابية لبناء الشراكات بين القطاعين الصحي الخاص والحكومي لتمويل وتوطين المشاريع الطبية الكبرى."
+                  ];
+                } else if (dsi >= 1.5) {
+                  statusLabel = "استدامة متوازنة ومستقرة ديموغرافياً";
+                  statusColorClass = "text-amber-700";
+                  statusBgClass = "bg-amber-50/70";
+                  statusBorderClass = "border-amber-200";
+                  recommendations = [
+                    "الحفاظ على وتيرة متوازنة لتوزيع الموارد عبر الاستمرار في دعم الرعاية الصحية الأولية بالتوازي مع التوسع الطفيف في العيادات التخصصية.",
+                    "توسيع برامج الكشف المبكر والوقاية عن الأمراض غير المعدية لتخفيف وتأخير العبء السريري لكبار السن داخل المجتمع.",
+                    "مراقبة الهجرة السكانية الداخلية والاستقرار الجغرافي لديمومة توفر الملاكات الطبية والسريرية بالنسبة للمحيط الخدمي."
+                  ];
+                } else {
+                  statusLabel = "ضغط إعالة مرتفع (يتطلب الاستجابة السريرية القصوى)";
+                  statusColorClass = "text-rose-700";
+                  statusBgClass = "bg-rose-50/70";
+                  statusBorderClass = "border-rose-200";
+                  recommendations = [
+                    "ضرورة التوسع الفوري في تأسيس عيادات الأمومة والطفولة وطب الأطفال نظرًا لزيادة كثافة الفئة العمرية الفتية في المجتمع.",
+                    "تأهيل وتوسيع برامج الرعاية الطبية المنزلية المخصصة للمسنين لتقليل فترات إشغال الأسرة بالمستشفيات العامة للمقاعد طويلة الأجل.",
+                    "إعطاء الأولوية للحملات الوطنية الشاملة للتطعيمات والتحصينات لتقليص وطأة الضغوط الموسمية على أقسام الطوارئ الصحية."
+                  ];
+                }
+
+                return (
+                  <div className="card-polish p-6 shadow-sm border border-[var(--border-ui)] space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border-ui)] pb-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="text-[var(--brand-accent)]" size={20} />
+                          <h4 className="font-black text-sm text-[var(--brand-primary)]">
+                            مؤشر الاستدامة الديموغرافية والتخطيط الصحي
+                          </h4>
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] font-bold">
+                          أداة تخطيطية استراتيجية تقيس مدى قدرة الفئة المنتجة في سن العمل على دعم وإعالة الفئات الهشة صحياً (الأطفال دون 15 سنة وكبار السن 60+).
+                        </p>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-xs font-black border ${statusBgClass} ${statusColorClass} ${statusBorderClass} self-start md:self-auto`}>
+                        {statusLabel}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      
+                      {/* Column 1: KPI Visual Display */}
+                      <div className="p-5 bg-gradient-to-br from-slate-50 to-indigo-50/20 border border-[var(--border-ui)] rounded-2xl flex flex-col justify-between space-y-4">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">Demographic Sustainability Index</span>
+                          <div className="flex items-baseline gap-2 pt-1">
+                            <span className="text-4xl font-[900] text-[var(--brand-primary)] font-mono">{dsi.toFixed(2)}</span>
+                            <span className="text-xs font-bold text-[var(--text-muted)]">مؤشر الاستقرار</span>
+                          </div>
+                          <span className="text-xs font-black text-[var(--brand-accent)] block pt-1">
+                            {dsi.toFixed(2)} فرد منتج لكل فرد معال (أطفال ومسنون)
+                          </span>
+                        </div>
+
+                        {/* Circular styled visual gauge or horizontal indicator */}
+                        <div className="space-y-2 pt-2">
+                          <div className="flex justify-between text-[10px] font-black text-slate-600">
+                            <span>ضغط مرتفع (&lt; 1.5)</span>
+                            <span>متزن (1.5 - 2.0)</span>
+                            <span>مستدام (&gt; 2.0)</span>
+                          </div>
+                          <div className="relative w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                            {/* Visual markers */}
+                            <div className="absolute left-1/3 w-[1.5px] h-full bg-white z-10"></div>
+                            <div className="absolute left-2/3 w-[1.5px] h-full bg-white z-10"></div>
+                            {/* Active pointer bar */}
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                dsi < 1.5 ? 'bg-rose-500' : dsi < 2.0 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min((dsi / 3.0) * 100, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-[10px] text-[var(--text-muted)] leading-relaxed font-bold">
+                            كلما ارتفع هذا المؤشر عن حاجز الـ (2.0)، كلما دل ذلك على وجود مجتمع حيوي ذو قدرة جيدة على تمويل وتلقي التوسعات في البرامج والمشاريع الطبية المبتكرة.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Column 2: Comparative Breakdown Visual Progress bars */}
+                      <div className="p-5 bg-white border border-[var(--border-ui)] rounded-2xl space-y-5 flex flex-col justify-center">
+                        <h5 className="font-extrabold text-xs text-[var(--brand-primary)] border-b border-[var(--border-ui)] pb-2">
+                          توزيع وحظوظ المكون الاجتماعي العام
+                        </h5>
+
+                        <div className="space-y-4 border-b border-[var(--border-ui)]/50 pb-2">
+                          {/* Working Age */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-extrabold text-slate-800">سن العمل والإنتاج (15-59 سنة)</span>
+                              <span className="font-black text-indigo-700 font-mono">{workingAgePercent}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div className="bg-indigo-600 h-full rounded-full transition-all" style={{ width: `${workingAgePercent}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] text-slate-400 font-bold">
+                              <span>العدد الفعلي:</span>
+                              <span className="font-mono">{workingAgeVal.toLocaleString()} نسمة</span>
+                            </div>
+                          </div>
+
+                          {/* Children */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-extrabold text-slate-800">الأطفال والفئات الناشئة (أقل من 15 سنة)</span>
+                              <span className="font-black text-amber-600 font-mono">{childrenPercent}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: `${childrenPercent}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] text-slate-400 font-bold">
+                              <span>العدد الفعلي:</span>
+                              <span className="font-mono">{childrenVal.toLocaleString()} نسمة</span>
+                            </div>
+                          </div>
+
+                          {/* Elderly */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-extrabold text-slate-800">كبار السن والمسنين (60+ سنة)</span>
+                              <span className="font-black text-rose-600 font-mono">{elderlyPercent}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div className="bg-rose-500 h-full rounded-full transition-all" style={{ width: `${elderlyPercent}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] text-slate-400 font-bold">
+                              <span>العدد الفعلي:</span>
+                              <span className="font-mono">{elderlyVal.toLocaleString()} نسمة</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Column 3: Custom Strategic Advice list */}
+                      <div className="p-5 bg-slate-50/50 border border-[var(--border-ui)] rounded-2xl space-y-4">
+                        <div className="flex items-center gap-1.5 text-[var(--brand-primary)] border-b border-[var(--border-ui)] pb-2">
+                          <UserCheck size={16} />
+                          <h5 className="font-extrabold text-xs">التوصيات الصحية والخططية المقترحة</h5>
+                        </div>
+                        <ul className="space-y-2.5">
+                          {recommendations.map((recommendation, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="w-5 h-5 shrink-0 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center text-[10px] font-black font-mono">
+                                {i + 1}
+                              </span>
+                              <p className="text-xs text-slate-700 leading-normal font-bold">
+                                {recommendation}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
 
             </motion.div>
           )}
